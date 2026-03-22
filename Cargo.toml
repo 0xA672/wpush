@@ -1,0 +1,11 @@
+[package]
+name = "wpush"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+tempfile = "3.10"
+anyhow = "1.0"
+git2 = "0.20.4"
+colored = "3.1.1"
