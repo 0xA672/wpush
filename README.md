@@ -73,3 +73,17 @@ wpush https://github.com/user/repo.git ~/repo --distro Debian --user root
 
 # Use an absolute path inside WSL
 wpush https://github.com/user/repo.git /home/cero/projects/repo
+```
+## How It Works
+
+1. **Git clone** – The repository is cloned into a temporary Windows directory, with transfer progress shown in the terminal.
+2. **Path resolution** – The destination path is expanded:
+   - `~` and `~/...` are converted to `/home/<username>/...` using the detected or specified WSL user.
+   - Absolute paths are kept unchanged.
+3. **WSL filesystem copy** – The cloned working tree is copied into `\\wsl$\<distro>\<path>` using `robocopy`.
+4. **Cleanup** – The temporary Windows directory is automatically deleted when the process finishes.
+
+> [!IMPORTANT]
+> The `.git` directory is **intentionally excluded** during the copy.
+> This means the destination folder **will not be a Git repository** – it contains only the latest source code, not the version history.  
+> If you need a full clone inside WSL, use `git clone` directly from your WSL terminal.
