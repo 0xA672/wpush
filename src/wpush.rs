@@ -1,10 +1,10 @@
-use std::io::{self, StdoutLock, Write};
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use colored::*;
+use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
+use std::io::{self, StdoutLock, Write};
 use std::process::Command;
 use tempfile::tempdir;
-use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
-use colored::*;
 
 enum WslPath {
     Absolute(String),
@@ -21,7 +21,7 @@ impl WslPath {
             WslPath::Absolute(path.to_string())
         }
     }
-    
+
     fn resolve(self, distro: &str, user: Option<&str>) -> Result<String> {
         match self {
             WslPath::Absolute(path) => Ok(path),
@@ -30,11 +30,11 @@ impl WslPath {
                     Some(u) => u.to_string(),
                     None => wsluser(distro)?,
                 };
-                
+
                 let expanded = if path == "~" {
                     format!("/home/{}", username)
                 } else {
-                    format!("/home/{}{}", username, &path[1..])  
+                    format!("/home/{}{}", username, &path[1..])
                 };
                 Ok(expanded)
             }
@@ -47,19 +47,17 @@ fn wsluser(distro: &str) -> Result<String> {
         .args(["-d", distro, "whoami"])
         .output()
         .with_context(|| format!("Failed to detect WSL user for distro '{}'", distro))?;
-    
+
     if !output.status.success() {
         return Err(anyhow!("wsl whoami failed"));
     }
-    
-    let user = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
-    
+
+    let user = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
     if user.is_empty() {
         return Err(anyhow!("WSL user is empty"));
     }
-    
+
     Ok(user)
 }
 
@@ -125,7 +123,7 @@ struct Args {
     user: Option<String>,
     /// Keep .git directory (preserve full Git history)
     #[arg(short = 'k', long = "keep-git")]
-    keep_git: bool,    
+    keep_git: bool,
 }
 
 #[cfg(target_os = "windows")]
@@ -135,68 +133,73 @@ fn main() -> Result<()> {
     let args: Args = Args::parse();
     let wsl_path = WslPath::parse(&args.dest);
     let resolved_dest = wsl_path.resolve(&args.distro, args.user.as_deref())?;
-    
+
     writeln!(locker, "{}", format!("Cloning {}...", args.repo).cyan())?;
     if let Some(b) = &args.branch {
         writeln!(locker, "Branch: {}", b.yellow())?;
     }
     writeln!(locker, "Target: {}", resolved_dest.cyan())?;
-    
+
     let tempdir = tempdir()?;
     let clonepath = tempdir.path();
-    
+
     let mut builder = RepoBuilder::new();
     let mut callbacks = RemoteCallbacks::new();
     callbacks.transfer_progress(|stats| {
         if stats.total_objects() > 0 {
             let pct = (stats.received_objects() * 100) / stats.total_objects();
-            eprint!("\rReceiving objects: {:3}% ({}/{})",
-                    pct, stats.received_objects(), stats.total_objects());
+            eprint!(
+                "\rReceiving objects: {:3}% ({}/{})",
+                pct,
+                stats.received_objects(),
+                stats.total_objects()
+            );
         }
         true
     });
-    
+
     let mut fo = FetchOptions::new();
     fo.remote_callbacks(callbacks);
     builder.fetch_options(fo);
-    
+
     if let Some(b) = &args.branch {
         builder.branch(b);
     }
-    
+
     builder.clone(&args.repo, clonepath)?;
-    eprintln!("\r{:<50}", "Receiving objects: done.".green());  
-    
-    let wsldest = format!(r"\\wsl$\{}\{}", args.distro, resolved_dest.trim_start_matches('/'));
+    eprintln!("\r{:<50}", "Receiving objects: done.".green());
+
+    let wsldest = format!(
+        r"\\wsl$\{}\{}",
+        args.distro,
+        resolved_dest.trim_start_matches('/')
+    );
     std::fs::create_dir_all(&wsldest)
         .with_context(|| format!("failed to create WSL directory {}", wsldest))?;
-    
-    let mut robocopy_args = vec![
-        clonepath.to_str().unwrap(),
-        &wsldest,
-        "/E",
-    ];
+
+    let mut robocopy_args = vec![clonepath.to_str().unwrap(), &wsldest, "/E"];
     if !args.keep_git {
         robocopy_args.push("/XD");
         robocopy_args.push(".git");
     }
 
-    let status = Command::new("robocopy")
-        .args(&robocopy_args)
-        .status()?;
-    
+    let status = Command::new("robocopy").args(&robocopy_args).status()?;
+
     match status.code() {
-        Some(0..=7) => {}  
+        Some(0..=7) => {}
         Some(code) => return Err(anyhow!("robocopy failed with exit code: {}", code)),
         None => return Err(anyhow!("robocopy terminated unexpectedly")),
     }
-    
+
     writeln!(locker, "{}", "done.".green())?;
     Ok(())
 }
 
 #[cfg(not(target_os = "windows"))]
 fn main() {
-    eprintln!("{}", "Error: wpush only runs on Windows (requires WSL).".red());
+    eprintln!(
+        "{}",
+        "Error: wpush only runs on Windows (requires WSL).".red()
+    );
     std::process::exit(1);
 }
