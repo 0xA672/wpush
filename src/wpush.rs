@@ -77,6 +77,7 @@ FEATURES:
   - Support for ~ (tilde) expansion in paths
   - Branch selection
   - Multi-distro support
+  - Option to preserve Git history (--keep-git / -k)
 
 DEST PATH FORMATS:
   ~/project          Expands to /home/<username>/project (auto-detects user)
@@ -84,8 +85,11 @@ DEST PATH FORMATS:
   /home/user/project Used as-is (absolute path)
 
 EXAMPLES:
-  # Clone to auto-detected user's home
+  # Clone to auto-detected user's home (without .git)
   wpush https://github.com/user/repo.git ~/project
+
+  # Clone with full Git history
+  wpush https://github.com/user/repo.git ~/project --keep-git
 
   # Clone with specific branch
   wpush https://github.com/user/repo.git ~/project -b develop
@@ -106,29 +110,32 @@ ENVIRONMENT:
     author
 )]
 struct Args {
-  /// Git repo URL
-  repo: String,
-  /// Destination path inside WSL
-  dest: String,
-  /// WSL distro name
-  #[arg(short, long, default_value = "Ubuntu")]
-  distro: String,
-  /// Git branch to clone
-  #[arg(short = 'b', long)]
-  branch: Option<String>,
-  /// WSL username (auto-detected if omitted)
-  #[arg(short, long)]
-  user: Option<String>,
+    /// Git repo URL
+    repo: String,
+    /// Destination path inside WSL
+    dest: String,
+    /// WSL distro name
+    #[arg(short, long, default_value = "Ubuntu")]
+    distro: String,
+    /// Git branch to clone
+    #[arg(short = 'b', long)]
+    branch: Option<String>,
+    /// WSL username (auto-detected if omitted)
+    #[arg(short, long)]
+    user: Option<String>,
+    /// Keep .git directory (preserve full Git history)
+    #[arg(short = 'k', long = "keep-git")]
+    keep_git: bool,    
 }
 
-
-
+#[cfg(target_os = "windows")]
 fn main() -> Result<()> {
     let stdout = io::stdout();
     let mut locker: StdoutLock = stdout.lock();
     let args: Args = Args::parse();
     let wsl_path = WslPath::parse(&args.dest);
     let resolved_dest = wsl_path.resolve(&args.distro, args.user.as_deref())?;
+    
     writeln!(locker, "{}", format!("Cloning {}...", args.repo).cyan())?;
     if let Some(b) = &args.branch {
         writeln!(locker, "Branch: {}", b.yellow())?;
@@ -137,7 +144,8 @@ fn main() -> Result<()> {
     
     let tempdir = tempdir()?;
     let clonepath = tempdir.path();
-    let mut bulider: RepoBuilder = RepoBuilder::new();
+    
+    let mut builder = RepoBuilder::new();
     let mut callbacks = RemoteCallbacks::new();
     callbacks.transfer_progress(|stats| {
         if stats.total_objects() > 0 {
@@ -147,24 +155,48 @@ fn main() -> Result<()> {
         }
         true
     });
+    
     let mut fo = FetchOptions::new();
     fo.remote_callbacks(callbacks);
-    bulider.fetch_options(fo);
-    if let Some(b) = &args.branch{
-      bulider.branch(b);
+    builder.fetch_options(fo);
+    
+    if let Some(b) = &args.branch {
+        builder.branch(b);
     }
-    bulider.clone(&args.repo,clonepath)?;
-    eprintln!(", done.");
+    
+    builder.clone(&args.repo, clonepath)?;
+    eprintln!("\r{:<50}", "Receiving objects: done.".green());  
     
     let wsldest = format!(r"\\wsl$\{}\{}", args.distro, resolved_dest.trim_start_matches('/'));
     std::fs::create_dir_all(&wsldest)
         .with_context(|| format!("failed to create WSL directory {}", wsldest))?;
-    let status = Command::new("robocopy")
-        .args([clonepath.to_str().unwrap(),&wsldest,"/E","/XD",".git",]).status()?;
-    // robocopy exit codes: 0-7 = success, 8+ = error
-    if status.code().unwrap_or(8) >= 8 {
-        return Err(anyhow!("robocopy failed, exit code: {:?}", status.code()));
+    
+    let mut robocopy_args = vec![
+        clonepath.to_str().unwrap(),
+        &wsldest,
+        "/E",
+    ];
+    if !args.keep_git {
+        robocopy_args.push("/XD");
+        robocopy_args.push(".git");
     }
+
+    let status = Command::new("robocopy")
+        .args(&robocopy_args)
+        .status()?;
+    
+    match status.code() {
+        Some(0..=7) => {}  
+        Some(code) => return Err(anyhow!("robocopy failed with exit code: {}", code)),
+        None => return Err(anyhow!("robocopy terminated unexpectedly")),
+    }
+    
     writeln!(locker, "{}", "done.".green())?;
     Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn main() {
+    eprintln!("{}", "Error: wpush only runs on Windows (requires WSL).".red());
+    std::process::exit(1);
 }
