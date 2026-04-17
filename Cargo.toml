@@ -9,3 +9,7 @@ tempfile = "3.10"
 anyhow = "1.0"
 git2 = "0.20.4"
 colored = "3.1.1"
+
+[[bin]]
+name = "wpush"
+path = "src/wpush.rs"
