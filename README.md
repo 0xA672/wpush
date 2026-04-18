@@ -1,5 +1,6 @@
 # wpush
 Clone repos on Windows, push to WSL. Zero-config bridge between worlds.
+[![GitHub stars](https://img.shields.io/github/stars/0xA672/wpush?style=social)](https://github.com/0xA672/wpush/stargazers)
 
 [![Crates.io](https://img.shields.io/crates/v/wpush-git.svg)](https://crates.io/crates/wpush-git)
 [![License](https://img.shields.io/crates/l/wpush-git.svg)](https://github.com/0xA672/wpush/blob/main/LICENSE)
