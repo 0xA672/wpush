@@ -73,6 +73,7 @@ Write-Host ""
 Write-Host " IMPORTANT: Close and reopen your terminal, or refresh environment variables." -ForegroundColor Yellow
 Write-Host "   (If you have Chocolatey, you can run 'refreshenv')"
 Write-Host "After that, try running: wpush --help"
+```
 ### Usage
 ```shell
 wpush [OPTIONS] <REPO_URL> <DEST_PATH>
