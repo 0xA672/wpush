@@ -75,6 +75,9 @@ wpush https://github.com/user/repo.git ~/repo --distro Debian --user root
 
 # Use an absolute path inside WSL
 wpush https://github.com/user/repo.git /home/cero/projects/repo
+
+# Clone with full Git history preserved
+wpush https://github.com/user/repo.git ~/repo --keep-git
 ```
 ## How It Works
 
