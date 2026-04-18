@@ -2,6 +2,12 @@
 name = "wpush"
 version = "0.1.2"
 edition = "2021"
+description = "A CLI tool to clone Git repositories on Windows and push them into WSL filesystem seamlessly."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/0xA672/wpush"
+readme = "README.md"
+keywords = ["wsl", "git", "windows", "cli", "productivity"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
