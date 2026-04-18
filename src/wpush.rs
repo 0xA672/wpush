@@ -1,5 +1,4 @@
 use clap::Parser;
-use colored::*;
 
 #[derive(Parser)]
 #[command(
@@ -216,6 +215,7 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn main() {
+    use colored::*; 
     eprintln!(
         "{}",
         "Error: wpush only runs on Windows (requires WSL).".red()
