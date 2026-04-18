@@ -1,5 +1,5 @@
-use colored::*;
 use clap::Parser;
+use colored::*;
 
 #[derive(Parser)]
 #[command(
@@ -70,12 +70,12 @@ struct Args {
 mod windows_impl {
     use super::Args;
     use anyhow::{anyhow, Context, Result};
+    use clap::Parser;
     use colored::*;
     use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
     use std::io::{self, StdoutLock, Write};
     use std::process::Command;
     use tempfile::tempdir;
-    use clap::Parser;
 
     enum WslPath {
         Absolute(String),
