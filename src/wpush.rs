@@ -1,5 +1,5 @@
-use clap::Parser;
 use colored::*;
+use clap::Parser;
 
 #[derive(Parser)]
 #[command(
@@ -75,6 +75,7 @@ mod windows_impl {
     use std::io::{self, StdoutLock, Write};
     use std::process::Command;
     use tempfile::tempdir;
+    use clap::Parser;
 
     enum WslPath {
         Absolute(String),
