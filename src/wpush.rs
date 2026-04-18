@@ -207,7 +207,7 @@ mod windows_impl {
         writeln!(locker, "{}", "done.".green())?;
         Ok(())
     }
-} 
+}
 
 #[cfg(target_os = "windows")]
 fn main() -> anyhow::Result<()> {
