@@ -64,6 +64,9 @@ struct Args {
     /// Keep .git directory (preserve full Git history)
     #[arg(short = 'k', long = "keep-git")]
     keep_git: bool,
+    /// Preview the actions without actually cloning or copying
+    #[arg(short = 'n', long = "dry-run")]
+    dry_run: bool,
 }
 
 #[cfg(target_os = "windows")]
@@ -145,6 +148,11 @@ mod windows_impl {
         }
         writeln!(locker, "Target: {}", resolved_dest.cyan())?;
 
+        if args.dry_run {
+            writeln!(locker, "{}", "Dry run completed. No changes made.".green())?;
+            return Ok(());
+        }
+
         let tempdir = tempdir()?;
         let clonepath = tempdir.path();
 
@@ -199,7 +207,7 @@ mod windows_impl {
         writeln!(locker, "{}", "done.".green())?;
         Ok(())
     }
-}
+} 
 
 #[cfg(target_os = "windows")]
 fn main() -> anyhow::Result<()> {
