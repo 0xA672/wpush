@@ -34,6 +34,11 @@ cd wpush
 cargo install --path .
 ```
 
+### Using PowerShell
+```powershell
+Invoke-WebRequest -Uri "https://github.com/0xA672/wpush/releases/latest/download/wpush.exe" -OutFile "wpush.exe"
+```
+
 ### Usage
 ```shell
 wpush [OPTIONS] <REPO_URL> <DEST_PATH>
