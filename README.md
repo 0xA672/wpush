@@ -34,11 +34,45 @@ cd wpush
 cargo install --path .
 ```
 
-### Using PowerShell
-```powershell
-Invoke-WebRequest -Uri "https://github.com/0xA672/wpush/releases/latest/download/wpush.exe" -OutFile "wpush.exe"
-```
+### Using PowerShell 
 
+Copy and paste the entire script into a **PowerShell** window (Administrator rights are *not* required unless you choose `C:\Windows` as the install directory).
+
+```powershell
+# Download the latest wpush.exe
+$url = "https://github.com/0xA672/wpush/releases/latest/download/wpush.exe"
+$tempFile = "$env:TEMP\wpush.exe"
+Invoke-WebRequest -Uri $url -OutFile $tempFile
+
+# Remove "Mark of the Web" to prevent SmartScreen blocking
+Unblock-File -Path $tempFile
+
+# Choose installation directory (must be in your PATH, or you will be warned)
+$destDir = "$env:USERPROFILE\.cargo\bin"
+if (-not (Test-Path $destDir)) {
+    New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+    Write-Host "Created directory: $destDir" -ForegroundColor Cyan
+}
+
+# Move the executable
+Move-Item -Path $tempFile -Destination "$destDir\wpush.exe" -Force
+
+# Verify the destination is in PATH
+$paths = $env:PATH -split ';'
+if ($paths -notcontains $destDir) {
+    Write-Warning "  $destDir is NOT in your system PATH."
+    Write-Host "   To add it manually, run this command in an elevated PowerShell:" -ForegroundColor Yellow
+    Write-Host "   [Environment]::SetEnvironmentVariable('PATH', `$env:PATH + ';$destDir', 'User')" -ForegroundColor Gray
+    Write-Host "   Or add '$destDir' via System Properties -> Environment Variables."
+} else {
+    Write-Host " $destDir is already in your PATH." -ForegroundColor Green
+}
+
+Write-Host " wpush installed to $destDir\wpush.exe" -ForegroundColor Green
+Write-Host ""
+Write-Host " IMPORTANT: Close and reopen your terminal, or refresh environment variables." -ForegroundColor Yellow
+Write-Host "   (If you have Chocolatey, you can run 'refreshenv')"
+Write-Host "After that, try running: wpush --help"
 ### Usage
 ```shell
 wpush [OPTIONS] <REPO_URL> <DEST_PATH>
