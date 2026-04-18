@@ -47,6 +47,7 @@ wpush [OPTIONS] <REPO_URL> <DEST_PATH>
 | `-u, --user <USER>` | WSL username (auto-detected via `wsl whoami` if omitted) |
 | `-h, --help` | Show help message |
 | `-V, --version` | Show version information |
+| `-k, --keep-git` | Preserve the `.git` directory during copy (keeps full Git history) |
 
 ## Destination Path Formats
 
@@ -85,6 +86,5 @@ wpush https://github.com/user/repo.git /home/cero/projects/repo
 4. **Cleanup** – The temporary Windows directory is automatically deleted when the process finishes.
 
 > [!IMPORTANT]
-> The `.git` directory is **intentionally excluded** during the copy.
-> This means the destination folder **will not be a Git repository** – it contains only the latest source code, not the version history.  
-> If you need a full clone inside WSL, use `git clone` directly from your WSL terminal.
+> By default, the `.git` directory is **excluded** during the copy, so the destination folder will **not be a Git repository**.
+> Use the `-k` / `--keep-git` flag to preserve the full Git history inside WSL.
