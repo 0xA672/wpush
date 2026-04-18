@@ -43,7 +43,7 @@ EXAMPLES:
 ENVIRONMENT:
   WSL_DISTRO    Default WSL distro (overridden by --distro)
 "#,
-    version,
+    version = env!("CARGO_PKG_VERSION"),
     author
 )]
 struct Args {
