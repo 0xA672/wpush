@@ -71,11 +71,12 @@ struct Args {
 #[cfg(target_os = "windows")]
 mod windows_impl {
     use super::Args;
-    use anyhow::{anyhow, Context, Result};
+    use anyhow::{anyhow, bail, Context, Result};
     use clap::Parser;
     use colored::*;
     use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
     use std::io::{self, StdoutLock, Write};
+    use std::path::Path;
     use std::process::Command;
     use tempfile::tempdir;
 
@@ -85,13 +86,23 @@ mod windows_impl {
     }
 
     impl WslPath {
-        fn parse(path: &str) -> Self {
+        fn parse(path: &str) -> Result<Self> {
+            if path.contains("..") {
+                bail!("Path contains '..' which is not allowed for security reasons");
+            }
+            if path.contains('\\') {
+                bail!("Backslashes are not allowed in WSL destination paths");
+            }
+
             if path.starts_with("~/") {
-                WslPath::Tilde(path.to_string())
+                Ok(WslPath::Tilde(path.to_string()))
             } else if path == "~" {
-                WslPath::Tilde("~".to_string())
+                Ok(WslPath::Tilde("~".to_string()))
             } else {
-                WslPath::Absolute(path.to_string())
+                if !path.starts_with('/') {
+                    bail!("Absolute WSL path must start with '/' (e.g., /home/user/project)");
+                }
+                Ok(WslPath::Absolute(path.to_string()))
             }
         }
 
@@ -122,50 +133,82 @@ mod windows_impl {
             .with_context(|| format!("Failed to detect WSL user for distro '{}'", distro))?;
 
         if !output.status.success() {
-            return Err(anyhow!("wsl whoami failed"));
+            bail!("wsl whoami failed");
         }
 
         let user = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
         if user.is_empty() {
-            return Err(anyhow!("WSL user is empty"));
+            bail!("WSL user is empty");
+        }
+
+        if !user.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+            bail!("Invalid WSL username format");
         }
 
         Ok(user)
     }
 
-    pub fn run() -> Result<()> {
-        let stdout = io::stdout();
-        let mut locker: StdoutLock = stdout.lock();
-        let args: Args = Args::parse();
-        let wsl_path = WslPath::parse(&args.dest);
-        let resolved_dest = wsl_path.resolve(&args.distro, args.user.as_deref())?;
-
-        writeln!(locker, "{}", format!("Cloning {}...", args.repo).cyan())?;
-        if let Some(b) = &args.branch {
-            writeln!(locker, "Branch: {}", b.yellow())?;
+    fn validate_repo_url(url: &str) -> Result<()> {
+        if url.trim().is_empty() {
+            bail!("Repository URL cannot be empty");
         }
-        writeln!(locker, "Target: {}", resolved_dest.cyan())?;
-
-        if args.dry_run {
-            writeln!(locker, "{}", "Dry run completed. No changes made.".green())?;
-            return Ok(());
+        if !(url.starts_with("http://") || url.starts_with("https://") || url.starts_with("git@") || url.starts_with("file://")) {
+            bail!("Invalid Git URL format");
         }
+        if url.contains(';') || url.contains('|') || url.contains('&') || url.contains('$') || url.contains('`') || url.contains('\'') || url.contains('"') {
+            bail!("Git URL contains potentially dangerous characters");
+        }
+        Ok(())
+    }
 
-        let tempdir = tempdir()?;
-        let clonepath = tempdir.path();
+    fn validate_distro(distro: &str) -> Result<()> {
+        if distro.trim().is_empty() {
+            bail!("Distro name cannot be empty");
+        }
+        if distro.contains('/') || distro.contains('\\') || distro.contains(':') || distro.contains(';') || distro.contains('|') || distro.contains('&') {
+            bail!("Distro name contains invalid characters");
+        }
+        Ok(())
+    }
 
+    fn validate_user(user: &str) -> Result<()> {
+        if user.trim().is_empty() {
+            bail!("Username cannot be empty");
+        }
+        if !user.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+            bail!("Invalid username format");
+        }
+        Ok(())
+    }
+
+    fn print_preview(repo: &str, branch: Option<&str>, dest: &str, keep_git: bool, mut out: StdoutLock) -> Result<()> {
+        writeln!(out, "{}", format!("Cloning {}...", repo).cyan())?;
+        if let Some(b) = branch {
+            writeln!(out, "Branch: {}", b.yellow())?;
+        }
+        writeln!(out, "Target: {}", dest.cyan())?;
+        writeln!(out, "Keep .git: {}", if keep_git { "yes".green() } else { "no".red() })?;
+        Ok(())
+    }
+
+    fn clone_repo(repo_url: &str, branch: Option<&str>, target_dir: &Path) -> Result<()> {
         let mut builder = RepoBuilder::new();
         let mut callbacks = RemoteCallbacks::new();
-        callbacks.transfer_progress(|stats| {
+
+        let mut last_reported_pct = 0u32;
+        callbacks.transfer_progress(move |stats| {
             if stats.total_objects() > 0 {
                 let pct = (stats.received_objects() * 100) / stats.total_objects();
-                eprint!(
-                    "\rReceiving objects: {:3}% ({}/{})",
-                    pct,
-                    stats.received_objects(),
-                    stats.total_objects()
-                );
+                if pct >= last_reported_pct + 10 || pct == 100 || last_reported_pct == 0 {
+                    eprint!(
+                        "\rReceiving objects: {:3}% ({}/{})",
+                        pct,
+                        stats.received_objects(),
+                        stats.total_objects()
+                    );
+                    last_reported_pct = pct;
+                }
             }
             true
         });
@@ -174,23 +217,28 @@ mod windows_impl {
         fo.remote_callbacks(callbacks);
         builder.fetch_options(fo);
 
-        if let Some(b) = &args.branch {
+        if let Some(b) = branch {
             builder.branch(b);
         }
 
-        builder.clone(&args.repo, clonepath)?;
+        builder.clone(repo_url, target_dir)
+            .with_context(|| format!("Failed to clone repository: {}", repo_url))?;
+
         eprintln!("\r{:<50}", "Receiving objects: done.".green());
+        Ok(())
+    }
 
-        let wsldest = format!(
-            r"\\wsl$\{}\{}",
-            args.distro,
-            resolved_dest.trim_start_matches('/')
-        );
-        std::fs::create_dir_all(&wsldest)
-            .with_context(|| format!("failed to create WSL directory {}", wsldest))?;
+    fn copy_to_wsl(source: &Path, wsl_dest: &str, keep_git: bool) -> Result<()> {
+        std::fs::create_dir_all(wsl_dest)
+            .with_context(|| format!("failed to create WSL directory {}", wsl_dest))?;
 
-        let mut robocopy_args = vec![clonepath.to_str().unwrap(), &wsldest, "/E"];
-        if !args.keep_git {
+        let mut robocopy_args = vec![
+            source.to_str().ok_or_else(|| anyhow!("Invalid source path encoding"))?,
+            wsl_dest,
+            "/E",
+        ];
+
+        if !keep_git {
             robocopy_args.push("/XD");
             robocopy_args.push(".git");
         }
@@ -198,12 +246,48 @@ mod windows_impl {
         let status = Command::new("robocopy").args(&robocopy_args).status()?;
 
         match status.code() {
-            Some(0..=7) => {}
-            Some(code) => return Err(anyhow!("robocopy failed with exit code: {}", code)),
-            None => return Err(anyhow!("robocopy terminated unexpectedly")),
+            Some(0..=7) => Ok(()),
+            Some(code) => Err(anyhow!("robocopy failed with exit code: {}", code)),
+            None => Err(anyhow!("robocopy terminated unexpectedly")),
+        }
+    }
+
+    pub fn run() -> Result<()> {
+        let stdout = io::stdout();
+        let locker = stdout.lock();
+
+        let args = Args::parse();
+
+        validate_repo_url(&args.repo)?;
+        validate_distro(&args.distro)?;
+        if let Some(ref u) = args.user {
+            validate_user(u)?;
         }
 
-        writeln!(locker, "{}", "done.".green())?;
+        let wsl_path = WslPath::parse(&args.dest)?;
+        let resolved_dest = wsl_path.resolve(&args.distro, args.user.as_deref())?;
+
+        print_preview(&args.repo, args.branch.as_deref(), &resolved_dest, args.keep_git, locker)?;
+
+        if args.dry_run {
+            println!("{}", "Dry run completed. No changes made.".green());
+            return Ok(());
+        }
+
+        let tempdir = tempdir()?;
+        let clonepath = tempdir.path();
+
+        clone_repo(&args.repo, args.branch.as_deref(), clonepath)?;
+
+        let wsldest = format!(
+            r"\\wsl$\{}\{}",
+            args.distro,
+            resolved_dest.trim_start_matches('/')
+        );
+
+        copy_to_wsl(clonepath, &wsldest, args.keep_git)?;
+
+        println!("{}", "done.".green());
         Ok(())
     }
 }
