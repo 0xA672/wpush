@@ -229,7 +229,7 @@ mod windows_impl {
         let mut builder = RepoBuilder::new();
         let mut callbacks = RemoteCallbacks::new();
 
-        let mut last_reported_pct = 0u32;
+        let mut last_reported_pct = 0usize;
         callbacks.transfer_progress(move |stats| {
             if stats.total_objects() > 0 {
                 let pct = (stats.received_objects() * 100) / stats.total_objects();
