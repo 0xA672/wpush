@@ -78,6 +78,7 @@ mod windows_impl {
     use std::io::{self, StdoutLock, Write};
     use std::path::Path;
     use std::process::Command;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use tempfile::tempdir;
 
     enum WslPath {
@@ -229,18 +230,19 @@ mod windows_impl {
         let mut builder = RepoBuilder::new();
         let mut callbacks = RemoteCallbacks::new();
 
-        let mut last_reported_pct = 0usize;
+        let last_reported_pct = AtomicUsize::new(0);
         callbacks.transfer_progress(move |stats| {
             if stats.total_objects() > 0 {
                 let pct = (stats.received_objects() * 100) / stats.total_objects();
-                if pct >= last_reported_pct + 10 || pct == 100 || last_reported_pct == 0 {
+                let prev = last_reported_pct.load(Ordering::Relaxed);
+                if pct >= prev + 10 || pct == 100 || prev == 0 {
                     eprint!(
                         "\rReceiving objects: {:3}% ({}/{})",
                         pct,
                         stats.received_objects(),
                         stats.total_objects()
                     );
-                    last_reported_pct = pct;
+                    last_reported_pct.store(pct, Ordering::Relaxed);
                 }
             }
             true
@@ -321,11 +323,8 @@ mod windows_impl {
 
         clone_repo(&args.repo, args.branch.as_deref(), clonepath)?;
 
-        let wsldest = format!(
-            r"\\wsl$\{}\{}",
-            args.distro,
-            resolved_dest.trim_start_matches('/')
-        );
+        let wsl_internal_path = resolved_dest.trim_start_matches('/').replace('/', "\\");
+        let wsldest = format!(r"\\wsl$\{}\{}", args.distro, wsl_internal_path);
 
         copy_to_wsl(clonepath, &wsldest, args.keep_git)?;
 
