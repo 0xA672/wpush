@@ -142,7 +142,10 @@ mod windows_impl {
             bail!("WSL user is empty");
         }
 
-        if !user.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        if !user
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        {
             bail!("Invalid WSL username format");
         }
 
@@ -153,10 +156,21 @@ mod windows_impl {
         if url.trim().is_empty() {
             bail!("Repository URL cannot be empty");
         }
-        if !(url.starts_with("http://") || url.starts_with("https://") || url.starts_with("git@") || url.starts_with("file://")) {
+        if !(url.starts_with("http://")
+            || url.starts_with("https://")
+            || url.starts_with("git@")
+            || url.starts_with("file://"))
+        {
             bail!("Invalid Git URL format");
         }
-        if url.contains(';') || url.contains('|') || url.contains('&') || url.contains('$') || url.contains('`') || url.contains('\'') || url.contains('"') {
+        if url.contains(';')
+            || url.contains('|')
+            || url.contains('&')
+            || url.contains('$')
+            || url.contains('`')
+            || url.contains('\'')
+            || url.contains('"')
+        {
             bail!("Git URL contains potentially dangerous characters");
         }
         Ok(())
@@ -166,7 +180,13 @@ mod windows_impl {
         if distro.trim().is_empty() {
             bail!("Distro name cannot be empty");
         }
-        if distro.contains('/') || distro.contains('\\') || distro.contains(':') || distro.contains(';') || distro.contains('|') || distro.contains('&') {
+        if distro.contains('/')
+            || distro.contains('\\')
+            || distro.contains(':')
+            || distro.contains(';')
+            || distro.contains('|')
+            || distro.contains('&')
+        {
             bail!("Distro name contains invalid characters");
         }
         Ok(())
@@ -176,19 +196,32 @@ mod windows_impl {
         if user.trim().is_empty() {
             bail!("Username cannot be empty");
         }
-        if !user.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        if !user
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        {
             bail!("Invalid username format");
         }
         Ok(())
     }
 
-    fn print_preview(repo: &str, branch: Option<&str>, dest: &str, keep_git: bool, mut out: StdoutLock) -> Result<()> {
+    fn print_preview(
+        repo: &str,
+        branch: Option<&str>,
+        dest: &str,
+        keep_git: bool,
+        mut out: StdoutLock,
+    ) -> Result<()> {
         writeln!(out, "{}", format!("Cloning {}...", repo).cyan())?;
         if let Some(b) = branch {
             writeln!(out, "Branch: {}", b.yellow())?;
         }
         writeln!(out, "Target: {}", dest.cyan())?;
-        writeln!(out, "Keep .git: {}", if keep_git { "yes".green() } else { "no".red() })?;
+        writeln!(
+            out,
+            "Keep .git: {}",
+            if keep_git { "yes".green() } else { "no".red() }
+        )?;
         Ok(())
     }
 
@@ -221,7 +254,8 @@ mod windows_impl {
             builder.branch(b);
         }
 
-        builder.clone(repo_url, target_dir)
+        builder
+            .clone(repo_url, target_dir)
             .with_context(|| format!("Failed to clone repository: {}", repo_url))?;
 
         eprintln!("\r{:<50}", "Receiving objects: done.".green());
@@ -233,7 +267,9 @@ mod windows_impl {
             .with_context(|| format!("failed to create WSL directory {}", wsl_dest))?;
 
         let mut robocopy_args = vec![
-            source.to_str().ok_or_else(|| anyhow!("Invalid source path encoding"))?,
+            source
+                .to_str()
+                .ok_or_else(|| anyhow!("Invalid source path encoding"))?,
             wsl_dest,
             "/E",
         ];
@@ -267,7 +303,13 @@ mod windows_impl {
         let wsl_path = WslPath::parse(&args.dest)?;
         let resolved_dest = wsl_path.resolve(&args.distro, args.user.as_deref())?;
 
-        print_preview(&args.repo, args.branch.as_deref(), &resolved_dest, args.keep_git, locker)?;
+        print_preview(
+            &args.repo,
+            args.branch.as_deref(),
+            &resolved_dest,
+            args.keep_git,
+            locker,
+        )?;
 
         if args.dry_run {
             println!("{}", "Dry run completed. No changes made.".green());
