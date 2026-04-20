@@ -1,4 +1,5 @@
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::{generate, Shell};
 
 #[derive(Parser)]
 #[command(
@@ -66,6 +67,8 @@ struct Args {
     /// Preview the actions without actually cloning or copying
     #[arg(short = 'n', long = "dry-run")]
     dry_run: bool,
+    #[arg(long, hide = true, exclusive = true)]
+    completions: Option<Shell>,    
 }
 
 #[cfg(target_os = "windows")]
@@ -295,6 +298,13 @@ mod windows_impl {
         let locker = stdout.lock();
 
         let args = Args::parse();
+
+        if let Some(shell) = args.completions {
+            let mut cmd = Args::command();
+            let name = cmd.get_name().to_string();
+            generate(shell, &mut cmd, name, &mut io::stdout());
+            return Ok(());
+        }        
 
         validate_repo_url(&args.repo)?;
         validate_distro(&args.distro)?;
