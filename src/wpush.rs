@@ -75,7 +75,7 @@ struct Args {
 mod windows_impl {
     use super::Args;
     use anyhow::{anyhow, bail, Context, Result};
-    use clap::{Parser, CommandFactory};
+    use clap::{CommandFactory, Parser};
     use colored::*;
     use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
     use std::io::{self, StdoutLock, Write};
