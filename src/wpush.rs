@@ -1,5 +1,5 @@
-use clap::{CommandFactory, Parser};
-use clap_complete::{generate, Shell};
+use clap::Parser;
+use clap_complete::Shell;
 
 #[derive(Parser)]
 #[command(
@@ -68,6 +68,8 @@ struct Args {
 mod windows_impl {
     use super::Args;
     use anyhow::{anyhow, bail, Context, Result};
+    use clap::{CommandFactory, Parser};
+    use clap_complete::generate;
     use colored::*;
     use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
     use std::io::{self, StdoutLock, Write};
