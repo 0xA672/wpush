@@ -303,7 +303,7 @@ mod windows_impl {
         if let Some(shell) = args.completions {
             let mut cmd = Args::command();
             let name = cmd.get_name().to_string();
-            shell.generate(&mut cmd, name, &mut io::stdout());
+            shell.generate(&mut cmd, &mut io::stdout());
             return Ok(());
         }
 
