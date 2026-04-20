@@ -75,7 +75,7 @@ struct Args {
 mod windows_impl {
     use super::Args;
     use anyhow::{anyhow, bail, Context, Result};
-    use clap::Parser;
+    use clap::{Parser, CommandFactory};
     use colored::*;
     use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
     use std::io::{self, StdoutLock, Write};
@@ -302,7 +302,7 @@ mod windows_impl {
         if let Some(shell) = args.completions {
             let mut cmd = Args::command();
             let name = cmd.get_name().to_string();
-            generate(shell, &mut cmd, name, &mut io::stdout());
+            shell.generate(&mut cmd, name, &mut io::stdout());
             return Ok(());
         }
 
