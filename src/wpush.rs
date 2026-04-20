@@ -76,6 +76,7 @@ mod windows_impl {
     use super::Args;
     use anyhow::{anyhow, bail, Context, Result};
     use clap::{CommandFactory, Parser};
+    use clap_complete::Generator;
     use colored::*;
     use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
     use std::io::{self, StdoutLock, Write};
