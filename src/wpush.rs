@@ -48,23 +48,16 @@ ENVIRONMENT:
     author
 )]
 struct Args {
-    /// Git repo URL
     repo: String,
-    /// Destination path inside WSL
     dest: String,
-    /// WSL distro name
     #[arg(short, long, default_value = "Ubuntu")]
     distro: String,
-    /// Git branch to clone
     #[arg(short = 'b', long)]
     branch: Option<String>,
-    /// WSL username (auto-detected if omitted)
     #[arg(short, long)]
     user: Option<String>,
-    /// Keep .git directory (preserve full Git history)
     #[arg(short = 'k', long = "keep-git")]
     keep_git: bool,
-    /// Preview the actions without actually cloning or copying
     #[arg(short = 'n', long = "dry-run")]
     dry_run: bool,
     #[arg(long, hide = true, exclusive = true)]
@@ -75,8 +68,6 @@ struct Args {
 mod windows_impl {
     use super::Args;
     use anyhow::{anyhow, bail, Context, Result};
-    use clap::{CommandFactory, Parser};
-    use clap_complete::Generator;
     use colored::*;
     use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
     use std::io::{self, StdoutLock, Write};
@@ -303,7 +294,7 @@ mod windows_impl {
         if let Some(shell) = args.completions {
             let mut cmd = Args::command();
             let name = cmd.get_name().to_string();
-            shell.generate(&mut cmd, &mut io::stdout());
+            generate(shell, &mut cmd, name, &mut io::stdout());
             return Ok(());
         }
 
