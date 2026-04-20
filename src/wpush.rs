@@ -68,7 +68,7 @@ struct Args {
     #[arg(short = 'n', long = "dry-run")]
     dry_run: bool,
     #[arg(long, hide = true, exclusive = true)]
-    completions: Option<Shell>,    
+    completions: Option<Shell>,
 }
 
 #[cfg(target_os = "windows")]
@@ -304,7 +304,7 @@ mod windows_impl {
             let name = cmd.get_name().to_string();
             generate(shell, &mut cmd, name, &mut io::stdout());
             return Ok(());
-        }        
+        }
 
         validate_repo_url(&args.repo)?;
         validate_distro(&args.distro)?;
