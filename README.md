@@ -124,6 +124,31 @@ wpush https://github.com/user/repo.git /home/cero/projects/repo
 wpush https://github.com/user/repo.git ~/repo --keep-git
 ```
 
+## Completions
+### Run the following commands in a **PowerShell** window:
+```powershell
+# 1. Ensure your PowerShell profile file exists
+if (!(Test-Path -Path $PROFILE)) {
+    New-Item -ItemType File -Path $PROFILE -Force
+}
+
+# 2. Append the completion script to your profile
+wpush completions powershell >> $PROFILE
+
+# 3. Reload your profile to enable completions immediately
+. $PROFILE
+```
+
+> [!NOTE]
+> If you encounter an error like running scripts is disabled on this system, you may need to adjust your PowerShell execution policy first:
+> ```powershell
+> Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+After installation, open a new PowerShell window and start typing wpush followed by Tab to see completions for:
+* Subcommands (e.g., completions)
+* Options (-d, --distro, --keep-git, etc.)
+* Dynamic WSL distribution names for the --distro flag
+
 ## How It Works
 
 1. **Git clone** – The repository is cloned into a temporary Windows directory, with transfer progress displayed in the terminal.
