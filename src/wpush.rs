@@ -1,49 +1,51 @@
 use clap::Parser;
 use clap_complete::Shell;
+use indoc::indoc;
 
 #[derive(Parser)]
 #[command(
     name = "wpush",
     about = "Clone a repo on Windows, push it into WSL",
-    long_about = r#"wpush - Windows to WSL Repository Pusher
+    long_about = indoc! {r#"
+        wpush - Windows to WSL Repository Pusher
 
-Clone any Git repository on Windows side, then seamlessly push it into your WSL filesystem.
+        Clone any Git repository on Windows side, then seamlessly push it into your WSL filesystem.
 
-FEATURES:
-  • Git-style progress bars with color output
-  • Automatic WSL username detection
-  • Support for ~ (tilde) expansion in paths
-  • Branch selection
-  • Multi-distro support
-  • Option to preserve Git history (--keep-git / -k)
+        FEATURES:
+          • Git-style progress bars with color output
+          • Automatic WSL username detection
+          • Support for ~ (tilde) expansion in paths
+          • Branch selection
+          • Multi-distro support
+          • Option to preserve Git history (--keep-git / -k)
 
-DESTINATION PATH FORMATS:
-  ~/project              Expands to /home/<username>/project (auto-detects user)
-  ~                      Expands to /home/<username>
-  /home/user/project     Used as-is (absolute path)
+        DESTINATION PATH FORMATS:
+          ~/project              Expands to /home/<username>/project (auto-detects user)
+          ~                      Expands to /home/<username>
+          /home/user/project     Used as-is (absolute path)
 
-EXAMPLES:
-  # Clone to auto-detected user's home (without .git)
-  wpush https://github.com/user/repo.git ~/project
+        EXAMPLES:
+          # Clone to auto-detected user's home (without .git)
+          wpush https://github.com/user/repo.git ~/project
 
-  # Clone with full Git history
-  wpush https://github.com/user/repo.git ~/project --keep-git
+          # Clone with full Git history
+          wpush https://github.com/user/repo.git ~/project --keep-git
 
-  # Clone with specific branch
-  wpush https://github.com/user/repo.git ~/project -b develop
+          # Clone with specific branch
+          wpush https://github.com/user/repo.git ~/project -b develop
 
-  # Clone to a different WSL distro
-  wpush https://github.com/user/repo.git ~/project --distro Debian
+          # Clone to a different WSL distro
+          wpush https://github.com/user/repo.git ~/project --distro Debian
 
-  # Clone with a specific user
-  wpush https://github.com/user/repo.git ~/project --user root
+          # Clone with a specific user
+          wpush https://github.com/user/repo.git ~/project --user root
 
-  # Clone to an absolute path
-  wpush https://github.com/user/repo.git /home/cero/projects/repo
+          # Clone to an absolute path
+          wpush https://github.com/user/repo.git /home/cero/projects/repo
 
-ENVIRONMENT VARIABLES:
-  WSL_DISTRO    Default WSL distro (overridden by --distro)
-"#,
+        ENVIRONMENT VARIABLES:
+          WSL_DISTRO    Default WSL distro (overridden by --distro)
+    "#},
     version = env!("CARGO_PKG_VERSION"),
     author
 )]
