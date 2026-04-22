@@ -9,42 +9,62 @@ use indoc::indoc;
     long_about = indoc! {r#"
         wpush - Windows to WSL Repository Pusher
 
-        Clone any Git repository on Windows side, then seamlessly push it into your WSL filesystem.
+        Clone any Git repository on Windows, then seamlessly push it into your WSL filesystem.
+
+        USAGE:
+          wpush [OPTIONS] <REPO_URL> <DEST_PATH>
+
+        ARGUMENTS:
+          <REPO_URL>   Git repository URL (https://, git@, or file://)
+          <DEST_PATH>  Destination path inside WSL (supports ~ expansion)
+
+        OPTIONS:
+          -d, --distro <DISTRO>   WSL distribution name [default: Ubuntu]
+          -b, --branch <BRANCH>   Specific branch to clone
+          -u, --user <USER>       WSL username (overrides auto-detection)
+          -k, --keep-git          Preserve .git directory (history)
+          -n, --dry-run           Preview operation without executing
+          -h, --help              Print help (see more with '--help')
+          -V, --version           Print version
 
         FEATURES:
           • Git-style progress bars with color output
-          • Automatic WSL username detection
-          • Support for ~ (tilde) expansion in paths
-          • Branch selection
-          • Multi-distro support
-          • Option to preserve Git history (--keep-git / -k)
+          • Automatic WSL username detection (via `wsl -d <distro> whoami`)
+          • ~ (tilde) expansion to /home/<username>
+          • Branch selection, multi-distro support
+          • Option to keep full Git history (--keep-git / -k)
 
         DESTINATION PATH FORMATS:
-          ~/project              Expands to /home/<username>/project (auto-detects user)
-          ~                      Expands to /home/<username>
-          /home/user/project     Used as-is (absolute path)
+          ~/project          Expands to /home/<username>/project (auto-detects user)
+          ~                  Expands to /home/<username>
+          /home/user/project Used as-is (absolute path)
 
         EXAMPLES:
           # Clone to auto-detected user's home (without .git)
           wpush https://github.com/user/repo.git ~/project
 
-          # Clone with full Git history
+          # Clone with full Git history preserved
           wpush https://github.com/user/repo.git ~/project --keep-git
 
-          # Clone with specific branch
+          # Clone a specific branch
           wpush https://github.com/user/repo.git ~/project -b develop
 
-          # Clone to a different WSL distro
+          # Use a different WSL distro
           wpush https://github.com/user/repo.git ~/project --distro Debian
 
-          # Clone with a specific user
+          # Specify an explicit WSL user
           wpush https://github.com/user/repo.git ~/project --user root
 
-          # Clone to an absolute path
+          # Clone to an absolute path (no expansion)
           wpush https://github.com/user/repo.git /home/cero/projects/repo
 
         ENVIRONMENT VARIABLES:
           WSL_DISTRO    Default WSL distro (overridden by --distro)
+
+        NOTE:
+          This tool clones the repository to a temporary location on Windows first,
+          then copies the contents into WSL using `robocopy`. The .git directory is
+          excluded by default unless --keep-git is specified.
     "#},
     version = env!("CARGO_PKG_VERSION"),
     author
