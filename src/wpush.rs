@@ -10,17 +10,17 @@ use clap_complete::Shell;
 Clone any Git repository on Windows side, then seamlessly push it into your WSL filesystem.
 
 FEATURES:
-  - Git-style progress bars with color output
-  - Automatic WSL username detection
-  - Support for ~ (tilde) expansion in paths
-  - Branch selection
-  - Multi-distro support
-  - Option to preserve Git history (--keep-git / -k)
+  • Git-style progress bars with color output
+  • Automatic WSL username detection
+  • Support for ~ (tilde) expansion in paths
+  • Branch selection
+  • Multi-distro support
+  • Option to preserve Git history (--keep-git / -k)
 
-DEST PATH FORMATS:
-  ~/project          Expands to /home/<username>/project (auto-detects user)
-  ~                  Expands to /home/<username>
-  /home/user/project Used as-is (absolute path)
+DESTINATION PATH FORMATS:
+  ~/project              Expands to /home/<username>/project (auto-detects user)
+  ~                      Expands to /home/<username>
+  /home/user/project     Used as-is (absolute path)
 
 EXAMPLES:
   # Clone to auto-detected user's home (without .git)
@@ -32,16 +32,16 @@ EXAMPLES:
   # Clone with specific branch
   wpush https://github.com/user/repo.git ~/project -b develop
 
-  # Clone to different WSL distro
+  # Clone to a different WSL distro
   wpush https://github.com/user/repo.git ~/project --distro Debian
 
-  # Clone with specific user
+  # Clone with a specific user
   wpush https://github.com/user/repo.git ~/project --user root
 
-  # Clone to absolute path
+  # Clone to an absolute path
   wpush https://github.com/user/repo.git /home/cero/projects/repo
 
-ENVIRONMENT:
+ENVIRONMENT VARIABLES:
   WSL_DISTRO    Default WSL distro (overridden by --distro)
 "#,
     version = env!("CARGO_PKG_VERSION"),
