@@ -287,7 +287,7 @@ mod windows_impl {
             if stats.total_objects() > 0 {
                 let total = stats.total_objects() as u64;
                 let received = stats.received_objects() as u64;
-                if total != pb.length() {
+                if Some(total) != pb.length() {
                     pb.set_length(total);
                 }
                 pb.set_position(received);
