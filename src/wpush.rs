@@ -257,12 +257,7 @@ mod windows_impl {
 
     // ── Preview ─────────────────────────────────
 
-    fn print_preview(
-        repo: &str,
-        branch: Option<&str>,
-        dest: &str,
-        keep_git: bool,
-    ) -> Result<()> {
+    fn print_preview(repo: &str, branch: Option<&str>, dest: &str, keep_git: bool) -> Result<()> {
         println!();
         info(&format!("Repository: {}", style(repo).white().bold()));
         if let Some(b) = branch {
