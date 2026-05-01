@@ -283,14 +283,14 @@ mod windows_impl {
         let pb = create_progress_bar(100);
         pb.set_message("cloning...");
 
+        // Clone the progress bar so we can move a handle into the closure
+        let pb_clone = pb.clone();
         callbacks.transfer_progress(move |stats| {
             if stats.total_objects() > 0 {
                 let total = stats.total_objects() as u64;
                 let received = stats.received_objects() as u64;
-                if Some(total) != pb.length() {
-                    pb.set_length(total);
-                }
-                pb.set_position(received);
+                pb_clone.set_length(total);
+                pb_clone.set_position(received);
             }
             true
         });
