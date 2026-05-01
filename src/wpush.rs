@@ -92,12 +92,11 @@ mod windows_impl {
     use anyhow::{anyhow, bail, Context, Result};
     use clap::{CommandFactory, Parser};
     use clap_complete::generate;
-    use colored::*;
-    use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
-    use std::io::{self, StdoutLock, Write};
+    use console::style;
+    use indicatif::{ProgressBar, ProgressStyle};
+    use std::io;
     use std::path::Path;
     use std::process::Command;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use tempfile::tempdir;
 
     enum WslPath {
@@ -225,49 +224,83 @@ mod windows_impl {
         Ok(())
     }
 
+    // ── Console output helpers ──────────────────
+
+    fn info(msg: &str) {
+        println!("{} {}", style("→").cyan(), msg);
+    }
+
+    fn success(msg: &str) {
+        println!("{} {}", style("✔").green(), msg);
+    }
+
+    #[allow(dead_code)]
+    fn warn(msg: &str) {
+        println!("{} {}", style("⚠").yellow(), msg);
+    }
+
+    #[allow(dead_code)]
+    fn error(msg: &str) {
+        eprintln!("{} {}", style("✖").red(), msg);
+    }
+
+    fn create_progress_bar(total: u64) -> ProgressBar {
+        let pb = ProgressBar::new(total);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({percent}%) {msg}")
+                .unwrap()
+                .progress_chars("#>-"),
+        );
+        pb
+    }
+
+    // ── Preview ─────────────────────────────────
+
     fn print_preview(
         repo: &str,
         branch: Option<&str>,
         dest: &str,
         keep_git: bool,
-        mut out: StdoutLock,
     ) -> Result<()> {
-        writeln!(out, "{}", format!("Cloning {}...", repo).cyan())?;
+        println!();
+        info(&format!("Repository: {}", style(repo).white().bold()));
         if let Some(b) = branch {
-            writeln!(out, "Branch: {}", b.yellow())?;
+            info(&format!("Branch:     {}", style(b).yellow()));
         }
-        writeln!(out, "Target: {}", dest.cyan())?;
-        writeln!(
-            out,
-            "Keep .git: {}",
-            if keep_git { "yes".green() } else { "no".red() }
-        )?;
+        info(&format!("Target:     {}", style(dest).cyan()));
+        let keep_str = if keep_git {
+            style("yes (preserve .git)").green().bold()
+        } else {
+            style("no (without .git)").red()
+        };
+        info(&format!("Keep .git:  {}", keep_str));
+        println!();
         Ok(())
     }
 
-    fn clone_repo(repo_url: &str, branch: Option<&str>, target_dir: &Path) -> Result<()> {
-        let mut builder = RepoBuilder::new();
-        let mut callbacks = RemoteCallbacks::new();
+    // ── Clone (with progress bar) ───────────────
 
-        let last_reported_pct = AtomicUsize::new(0);
+    fn clone_repo(repo_url: &str, branch: Option<&str>, target_dir: &Path) -> Result<()> {
+        let mut builder = git2::build::RepoBuilder::new();
+        let mut callbacks = git2::RemoteCallbacks::new();
+
+        let pb = create_progress_bar(100);
+        pb.set_message("cloning...");
+
         callbacks.transfer_progress(move |stats| {
             if stats.total_objects() > 0 {
-                let pct = (stats.received_objects() * 100) / stats.total_objects();
-                let prev = last_reported_pct.load(Ordering::Relaxed);
-                if pct >= prev + 10 || pct == 100 || prev == 0 {
-                    eprint!(
-                        "\rReceiving objects: {:3}% ({}/{})",
-                        pct,
-                        stats.received_objects(),
-                        stats.total_objects()
-                    );
-                    last_reported_pct.store(pct, Ordering::Relaxed);
+                let total = stats.total_objects() as u64;
+                let received = stats.received_objects() as u64;
+                if total != pb.length() {
+                    pb.set_length(total);
                 }
+                pb.set_position(received);
             }
             true
         });
 
-        let mut fo = FetchOptions::new();
+        let mut fo = git2::FetchOptions::new();
         fo.remote_callbacks(callbacks);
         builder.fetch_options(fo);
 
@@ -277,13 +310,17 @@ mod windows_impl {
 
         builder
             .clone(repo_url, target_dir)
-            .with_context(|| format!("Failed to clone repository: {}", repo_url))?;
+            .with_context(|| format!("Failed to clone {}", repo_url))?;
 
-        eprintln!("\r{:<50}", "Receiving objects: done.".green());
+        pb.finish_and_clear();
+        success("Repository cloned successfully");
         Ok(())
     }
 
+    // ── Copy to WSL ────────────────────────────
+
     fn copy_to_wsl(source: &Path, wsl_dest: &str, keep_git: bool) -> Result<()> {
+        info("Copying files to WSL...");
         std::fs::create_dir_all(wsl_dest)
             .with_context(|| format!("failed to create WSL directory {}", wsl_dest))?;
 
@@ -300,19 +337,25 @@ mod windows_impl {
             robocopy_args.push(".git");
         }
 
-        let status = Command::new("robocopy").args(&robocopy_args).status()?;
+        let status = Command::new("robocopy")
+            .args(&robocopy_args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()?;
 
         match status.code() {
-            Some(0..=7) => Ok(()),
+            Some(0..=7) => {
+                success("Files copied to WSL successfully");
+                Ok(())
+            }
             Some(code) => Err(anyhow!("robocopy failed with exit code: {}", code)),
             None => Err(anyhow!("robocopy terminated unexpectedly")),
         }
     }
 
-    pub fn run() -> Result<()> {
-        let stdout = io::stdout();
-        let locker = stdout.lock();
+    // ── Main entry point ────────────────────────
 
+    pub fn run() -> Result<()> {
         let args = Args::parse();
 
         if let Some(shell) = args.completions {
@@ -336,11 +379,10 @@ mod windows_impl {
             args.branch.as_deref(),
             &resolved_dest,
             args.keep_git,
-            locker,
         )?;
 
         if args.dry_run {
-            println!("{}", "Dry run completed. No changes made.".green());
+            success("Dry run completed. No changes made.");
             return Ok(());
         }
 
@@ -351,10 +393,9 @@ mod windows_impl {
 
         let wsl_internal_path = resolved_dest.trim_start_matches('/').replace('/', "\\");
         let wsldest = format!(r"\\wsl$\{}\{}", args.distro, wsl_internal_path);
-
         copy_to_wsl(clonepath, &wsldest, args.keep_git)?;
 
-        println!("{}", "done.".green());
+        success("All done! Repository pushed to WSL.");
         Ok(())
     }
 }
@@ -366,10 +407,9 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn main() {
-    use colored::*;
     eprintln!(
         "{}",
-        "Error: wpush only runs on Windows (requires WSL).".red()
+        console::style("Error: wpush only runs on Windows (requires WSL).").red()
     );
     std::process::exit(1);
 }
