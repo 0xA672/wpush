@@ -24,3 +24,12 @@ console = "0.15"
 [[bin]]
 name = "wpush"
 path = "src/wpush.rs"
+
+[profile.release-max]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+panic = "abort"
+incremental = false
+strip = "symbols"
