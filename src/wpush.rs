@@ -152,7 +152,10 @@ mod windows_impl {
             .with_context(|| format!("Could not detect user in WSL distro '{}'. Is the distro running? Try: wsl -d {} whoami", distro, distro))?;
 
         if !output.status.success() {
-            bail!("`wsl whoami` failed. Check if the distro '{}' is installed and accessible.", distro);
+            bail!(
+                "`wsl whoami` failed. Check if the distro '{}' is installed and accessible.",
+                distro
+            );
         }
 
         let user = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -296,8 +299,12 @@ mod windows_impl {
 
     fn copy_to_wsl(src: &Path, wsl_dest: &str, keep_git: bool) -> Result<()> {
         info("Copying files to WSL...");
-        std::fs::create_dir_all(wsl_dest)
-            .with_context(|| format!("Failed to create destination directory in WSL: {}", wsl_dest))?;
+        std::fs::create_dir_all(wsl_dest).with_context(|| {
+            format!(
+                "Failed to create destination directory in WSL: {}",
+                wsl_dest
+            )
+        })?;
 
         let mut rargs = vec![
             src.to_str()
@@ -354,12 +361,7 @@ mod windows_impl {
         let wpath = WslPath::parse(&args.dest)?;
         let resolved = wpath.resolve(&args.distro, args.user.as_deref())?;
 
-        preview(
-            &args.repo,
-            args.branch.as_deref(),
-            &resolved,
-            args.keep_git,
-        )?;
+        preview(&args.repo, args.branch.as_deref(), &resolved, args.keep_git)?;
 
         if args.dry_run {
             success("Dry run completed. No changes made.");
