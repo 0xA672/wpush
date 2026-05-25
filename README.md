@@ -86,6 +86,7 @@ wpush [OPTIONS] <REPO_URL> <DEST_PATH>
 | `-b, --branch <BRANCH>`    | Git branch to clone                                                      |
 | `-u, --user <USER>`        | WSL username (auto‑detected via `wsl whoami` if omitted)                  |
 | `-k, --keep-git`           | Preserve the `.git` directory (keeps full Git history)                    |
+| `-x, --exclude <PATTERN>` | Additional directory/file patterns to exclude from copy (repeatable)       |
 | `-n, --dry-run`            | Preview actions without actually cloning or copying                       |
 | `-h, --help`               | Show help message                                                         |
 | `-V, --version`            | Show version information                                                  |

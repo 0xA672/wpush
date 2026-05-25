@@ -1,6 +1,6 @@
 [package]
 name = "wpush-git"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "A CLI tool to clone Git repositories on Windows and push them into WSL filesystem seamlessly."
 license = "MIT OR Apache-2.0"
@@ -11,7 +11,7 @@ categories = ["command-line-utilities", "development-tools"]
 authors = ["0xA672 <Cero0xA672@outlook.com>"]
 
 [dependencies]
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive", "env"] }
 clap_complete = "4.5"
 tempfile = "3.10"
 anyhow = "1.0"

@@ -23,6 +23,7 @@ use indoc::indoc;
           -b, --branch <BRANCH>   Specific branch to clone
           -u, --user <USER>       WSL username (overrides auto-detection)
           -k, --keep-git          Preserve .git directory (history)
+          -x, --exclude <PATTERN> Additional directory patterns to exclude from copy (repeatable)
           -n, --dry-run           Preview operation without executing
           -h, --help              Print help (see more with '--help')
           -V, --version           Print version
@@ -72,7 +73,7 @@ use indoc::indoc;
 struct Args {
     repo: String,
     dest: String,
-    #[arg(short, long, default_value = "Ubuntu")]
+    #[arg(short, long, default_value = "Ubuntu", env = "WSL_DISTRO")]
     distro: String,
     #[arg(short = 'b', long)]
     branch: Option<String>,
@@ -80,6 +81,8 @@ struct Args {
     user: Option<String>,
     #[arg(short = 'k', long = "keep-git")]
     keep_git: bool,
+    #[arg(short = 'x', long = "exclude", value_name = "PATTERN")]
+    exclude: Vec<String>,
     #[arg(short = 'n', long = "dry-run")]
     dry_run: bool,
     #[arg(long, hide = true, exclusive = true)]
@@ -246,7 +249,7 @@ mod windows_impl {
         pb
     }
 
-    fn preview(repo: &str, branch: Option<&str>, dest: &str, keep_git: bool) -> Result<()> {
+    fn preview(repo: &str, branch: Option<&str>, dest: &str, keep_git: bool, exclude: &[String]) -> Result<()> {
         println!();
         info(&format!("Repository: {}", style(repo).white().bold()));
         if let Some(b) = branch {
@@ -259,6 +262,9 @@ mod windows_impl {
             style("no (without .git)").red()
         };
         info(&format!("Keep .git:  {}", keep_str));
+        if !exclude.is_empty() {
+            info(&format!("Exclude:    {}", style(exclude.join(", ")).red()));
+        }
         println!();
         Ok(())
     }
@@ -267,7 +273,7 @@ mod windows_impl {
         let mut builder = git2::build::RepoBuilder::new();
         let mut cbs = git2::RemoteCallbacks::new();
 
-        let pb = bar(100);
+        let pb = bar(0);
         pb.set_message("cloning...");
         let pb2 = pb.clone();
         cbs.transfer_progress(move |stats| {
@@ -297,7 +303,7 @@ mod windows_impl {
         Ok(())
     }
 
-    fn copy_to_wsl(src: &Path, wsl_dest: &str, keep_git: bool) -> Result<()> {
+    fn copy_to_wsl(src: &Path, wsl_dest: &str, keep_git: bool, exclude: &[String]) -> Result<()> {
         info("Copying files to WSL...");
         std::fs::create_dir_all(wsl_dest).with_context(|| {
             format!(
@@ -311,11 +317,16 @@ mod windows_impl {
                 .ok_or_else(|| anyhow!("Internal error: invalid temporary path encoding"))?,
             wsl_dest,
             "/E",
+            "/MT",
         ];
 
+        let mut xd_patterns: Vec<&str> = exclude.iter().map(|s| s.as_str()).collect();
         if !keep_git {
+            xd_patterns.push(".git");
+        }
+        if !xd_patterns.is_empty() {
             rargs.push("/XD");
-            rargs.push(".git");
+            rargs.extend(xd_patterns);
         }
 
         let status = Command::new("robocopy")
@@ -361,7 +372,7 @@ mod windows_impl {
         let wpath = WslPath::parse(&args.dest)?;
         let resolved = wpath.resolve(&args.distro, args.user.as_deref())?;
 
-        preview(&args.repo, args.branch.as_deref(), &resolved, args.keep_git)?;
+        preview(&args.repo, args.branch.as_deref(), &resolved, args.keep_git, &args.exclude)?;
 
         if args.dry_run {
             success("Dry run completed. No changes made.");
@@ -375,7 +386,7 @@ mod windows_impl {
 
         let inner = resolved.trim_start_matches('/').replace('/', "\\");
         let robodest = format!(r"\\wsl$\{}\{}", args.distro, inner);
-        copy_to_wsl(clone_dir, &robodest, args.keep_git)?;
+        copy_to_wsl(clone_dir, &robodest, args.keep_git, &args.exclude)?;
 
         success("All done! Repository pushed to WSL.");
         Ok(())
