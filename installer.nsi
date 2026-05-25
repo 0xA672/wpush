@@ -21,7 +21,7 @@ RequestExecutionLevel admin
 
 ;--- General ---
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "wpush-setup-${PRODUCT_VERSION}.exe"
+OutFile "wpush-setup-${PRODUCT_VERSION}-x64.exe"
 InstallDir "$PROGRAMFILES64\${PRODUCT_NAME}"
 InstallDirRegKey HKLM "Software\${PRODUCT_PUBLISHER}\${PRODUCT_NAME}" "Install_Dir"
 ShowInstDetails hide
