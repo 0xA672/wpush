@@ -249,7 +249,13 @@ mod windows_impl {
         pb
     }
 
-    fn preview(repo: &str, branch: Option<&str>, dest: &str, keep_git: bool, exclude: &[String]) -> Result<()> {
+    fn preview(
+        repo: &str,
+        branch: Option<&str>,
+        dest: &str,
+        keep_git: bool,
+        exclude: &[String],
+    ) -> Result<()> {
         println!();
         info(&format!("Repository: {}", style(repo).white().bold()));
         if let Some(b) = branch {
@@ -372,7 +378,13 @@ mod windows_impl {
         let wpath = WslPath::parse(&args.dest)?;
         let resolved = wpath.resolve(&args.distro, args.user.as_deref())?;
 
-        preview(&args.repo, args.branch.as_deref(), &resolved, args.keep_git, &args.exclude)?;
+        preview(
+            &args.repo,
+            args.branch.as_deref(),
+            &resolved,
+            args.keep_git,
+            &args.exclude,
+        )?;
 
         if args.dry_run {
             success("Dry run completed. No changes made.");
