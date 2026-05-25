@@ -74,10 +74,29 @@ jobs:
       - name: Build release binary
         run: cargo build --release --verbose
 
-      - name: Upload to Release
+      - name: Create ZIP archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path target/release/wpush.exe -DestinationPath "wpush-${{ github.ref_name }}.zip"
+
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          & "C:\Program Files (x86)\NSIS\makensis.exe" -DVERSION=$version installer.nsi
+        env:
+          VERSION: ${{ github.ref_name }}
+
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: target/release/wpush.exe
+          files: |
+            wpush-${{ github.ref_name }}.zip
+            wpush-setup-*.exe
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
