@@ -311,7 +311,13 @@ mod windows_impl {
         Ok(())
     }
 
-    fn clone_repo(repo_url: &str, branch: Option<&str>, target: &Path, depth: Option<i32>, recursive: bool) -> Result<()> {
+    fn clone_repo(
+        repo_url: &str,
+        branch: Option<&str>,
+        target: &Path,
+        depth: Option<i32>,
+        recursive: bool,
+    ) -> Result<()> {
         let mut builder = git2::build::RepoBuilder::new();
         let mut cbs = git2::RemoteCallbacks::new();
 
@@ -350,11 +356,16 @@ mod windows_impl {
             info("Initializing submodules...");
             let repo = git2::Repository::open(target)
                 .with_context(|| "Failed to open cloned repository for submodule init")?;
-            let mut submodules = repo.submodules()
+            let mut submodules = repo
+                .submodules()
                 .with_context(|| "Failed to list submodules")?;
             for sm in &mut submodules {
-                sm.update(true, None)
-                    .with_context(|| format!("Failed to update submodule '{}'", sm.name().unwrap_or("unknown")))?;
+                sm.update(true, None).with_context(|| {
+                    format!(
+                        "Failed to update submodule '{}'",
+                        sm.name().unwrap_or("unknown")
+                    )
+                })?;
             }
             success("Submodules initialized successfully");
         }
@@ -362,7 +373,13 @@ mod windows_impl {
         Ok(())
     }
 
-    fn copy_to_wsl(src: &Path, wsl_dest: &str, keep_git: bool, exclude: &[String], preserve_perms: bool) -> Result<()> {
+    fn copy_to_wsl(
+        src: &Path,
+        wsl_dest: &str,
+        keep_git: bool,
+        exclude: &[String],
+        preserve_perms: bool,
+    ) -> Result<()> {
         info("Copying files to WSL...");
         std::fs::create_dir_all(wsl_dest).with_context(|| {
             format!(
@@ -464,7 +481,13 @@ mod windows_impl {
 
         let inner = resolved.trim_start_matches('/').replace('/', "\\");
         let robodest = format!(r"\\wsl$\{}\{}", args.distro, inner);
-        copy_to_wsl(clone_dir, &robodest, args.keep_git, &args.exclude, args.preserve_perms)?;
+        copy_to_wsl(
+            clone_dir,
+            &robodest,
+            args.keep_git,
+            &args.exclude,
+            args.preserve_perms,
+        )?;
 
         success("All done! Repository pushed to WSL.");
         Ok(())
