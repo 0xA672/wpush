@@ -19,14 +19,17 @@ use indoc::indoc;
           <DEST_PATH>  Destination path inside WSL (supports ~ expansion)
 
         OPTIONS:
-          -d, --distro <DISTRO>   WSL distribution name [default: Ubuntu]
-          -b, --branch <BRANCH>   Specific branch to clone
-          -u, --user <USER>       WSL username (overrides auto-detection)
-          -k, --keep-git          Preserve .git directory (history)
-          -x, --exclude <PATTERN> Additional directory patterns to exclude from copy (repeatable)
-          -n, --dry-run           Preview operation without executing
-          -h, --help              Print help (see more with '--help')
-          -V, --version           Print version
+          -d, --distro <DISTRO>        WSL distribution name [default: Ubuntu]
+          -b, --branch <BRANCH>        Specific branch to clone
+          -u, --user <USER>            WSL username (overrides auto-detection)
+          -k, --keep-git               Preserve .git directory (history)
+          -x, --exclude <PATTERN>      Additional directory patterns to exclude from copy (repeatable)
+          -n, --dry-run                Preview operation without executing
+              --depth <DEPTH>          Shallow clone with given depth (number of commits)
+          -r, --recursive              Clone submodules recursively
+              --preserve-perms         Preserve file permissions / security metadata when copying to WSL
+          -h, --help                   Print help (see more with '--help')
+          -V, --version                Print version
 
         FEATURES:
           • Git-style progress bars with color output
@@ -34,6 +37,9 @@ use indoc::indoc;
           • ~ (tilde) expansion to /home/<username>
           • Branch selection, multi-distro support
           • Option to keep full Git history (--keep-git / -k)
+          • Shallow clone support (--depth)
+          • Recursive submodule clone (--recursive)
+          • File permission preservation (--preserve-perms)
 
         DESTINATION PATH FORMATS:
           ~/project          Expands to /home/<username>/project (auto-detects user)
@@ -49,6 +55,18 @@ use indoc::indoc;
 
           # Clone a specific branch
           wpush https://github.com/user/repo.git ~/project -b develop
+
+          # Shallow clone (latest commit only, faster)
+          wpush https://github.com/user/repo.git ~/project --depth 1
+
+          # Clone including submodules
+          wpush https://github.com/user/repo.git ~/project --recursive
+
+          # Preserve file permissions (e.g., +x scripts)
+          wpush https://github.com/user/repo.git ~/project --preserve-perms
+
+          # Combine all three
+          wpush https://github.com/user/repo.git ~/project --depth 1 --recursive --preserve-perms
 
           # Use a different WSL distro
           wpush https://github.com/user/repo.git ~/project --distro Debian
@@ -85,6 +103,12 @@ struct Args {
     exclude: Vec<String>,
     #[arg(short = 'n', long = "dry-run")]
     dry_run: bool,
+    #[arg(long, value_name = "DEPTH")]
+    depth: Option<i32>,
+    #[arg(short = 'r', long = "recursive")]
+    recursive: bool,
+    #[arg(long = "preserve-perms")]
+    preserve_perms: bool,
     #[arg(long, hide = true, exclusive = true)]
     completions: Option<Shell>,
 }
@@ -255,11 +279,23 @@ mod windows_impl {
         dest: &str,
         keep_git: bool,
         exclude: &[String],
+        depth: Option<i32>,
+        recursive: bool,
+        preserve_perms: bool,
     ) -> Result<()> {
         println!();
         info(&format!("Repository: {}", style(repo).white().bold()));
         if let Some(b) = branch {
             info(&format!("Branch:     {}", style(b).yellow()));
+        }
+        if let Some(d) = depth {
+            info(&format!("Depth:      {}", style(d.to_string()).yellow()));
+        }
+        if recursive {
+            info(&format!("Recursive:  {}", style("yes").green().bold()));
+        }
+        if preserve_perms {
+            info(&format!("Permissions:{}", style("preserve").green().bold()));
         }
         info(&format!("Target:     {}", style(dest).cyan()));
         let keep_str = if keep_git {
@@ -275,7 +311,7 @@ mod windows_impl {
         Ok(())
     }
 
-    fn clone_repo(repo_url: &str, branch: Option<&str>, target: &Path) -> Result<()> {
+    fn clone_repo(repo_url: &str, branch: Option<&str>, target: &Path, depth: Option<i32>, recursive: bool) -> Result<()> {
         let mut builder = git2::build::RepoBuilder::new();
         let mut cbs = git2::RemoteCallbacks::new();
 
@@ -294,6 +330,9 @@ mod windows_impl {
 
         let mut fo = git2::FetchOptions::new();
         fo.remote_callbacks(cbs);
+        if let Some(d) = depth {
+            fo.depth(d);
+        }
         builder.fetch_options(fo);
 
         if let Some(b) = branch {
@@ -306,10 +345,24 @@ mod windows_impl {
 
         pb.finish_and_clear();
         success("Repository cloned successfully");
+
+        if recursive {
+            info("Initializing submodules...");
+            let repo = git2::Repository::open(target)
+                .with_context(|| "Failed to open cloned repository for submodule init")?;
+            let mut submodules = repo.submodules()
+                .with_context(|| "Failed to list submodules")?;
+            for sm in &mut submodules {
+                sm.update(true, None)
+                    .with_context(|| format!("Failed to update submodule '{}'", sm.name().unwrap_or("unknown")))?;
+            }
+            success("Submodules initialized successfully");
+        }
+
         Ok(())
     }
 
-    fn copy_to_wsl(src: &Path, wsl_dest: &str, keep_git: bool, exclude: &[String]) -> Result<()> {
+    fn copy_to_wsl(src: &Path, wsl_dest: &str, keep_git: bool, exclude: &[String], preserve_perms: bool) -> Result<()> {
         info("Copying files to WSL...");
         std::fs::create_dir_all(wsl_dest).with_context(|| {
             format!(
@@ -325,6 +378,10 @@ mod windows_impl {
             "/E",
             "/MT",
         ];
+
+        if preserve_perms {
+            rargs.push("/COPY:DATSO");
+        }
 
         let mut xd_patterns: Vec<&str> = exclude.iter().map(|s| s.as_str()).collect();
         if !keep_git {
@@ -384,6 +441,9 @@ mod windows_impl {
             &resolved,
             args.keep_git,
             &args.exclude,
+            args.depth,
+            args.recursive,
+            args.preserve_perms,
         )?;
 
         if args.dry_run {
@@ -394,11 +454,17 @@ mod windows_impl {
         let tmp = tempdir()?;
         let clone_dir = tmp.path();
 
-        clone_repo(&args.repo, args.branch.as_deref(), clone_dir)?;
+        clone_repo(
+            &args.repo,
+            args.branch.as_deref(),
+            clone_dir,
+            args.depth,
+            args.recursive,
+        )?;
 
         let inner = resolved.trim_start_matches('/').replace('/', "\\");
         let robodest = format!(r"\\wsl$\{}\{}", args.distro, inner);
-        copy_to_wsl(clone_dir, &robodest, args.keep_git, &args.exclude)?;
+        copy_to_wsl(clone_dir, &robodest, args.keep_git, &args.exclude, args.preserve_perms)?;
 
         success("All done! Repository pushed to WSL.");
         Ok(())
